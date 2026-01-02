@@ -1,14 +1,23 @@
-import makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason
-} from '@whiskeysockets/baileys'
-import qrcode from 'qrcode-terminal'
+import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys'
 import OpenAI from 'openai'
 import Pino from 'pino'
 import express from 'express'
+import QRCode from 'qrcode'
 
 const app = express()
-app.get("/", (req, res) => res.send("Raios WhatsApp Bot is running"))
+let lastQR = null
+
+app.get("/", (req, res) => {
+  if (!lastQR) {
+    res.send("⏳ Esperando QR de WhatsApp...")
+  } else {
+    res.send(`
+      <h2>Escanea este QR con WhatsApp</h2>
+      <img src="${lastQR}" />
+    `)
+  }
+})
+
 app.listen(process.env.PORT || 3000)
 
 const openai = new OpenAI({
@@ -25,21 +34,16 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds)
 
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, qr } = update
 
     if (qr) {
-      console.log("📲 ESCANEA ESTE QR CON WHATSAPP")
-      qrcode.generate(qr, { small: true })
+      lastQR = await QRCode.toDataURL(qr)
+      console.log("QR listo")
     }
 
-    if (connection === 'open') {
-      console.log("✅ WHATSAPP CONECTADO A RAIOS BOT")
-    }
-
-    if (connection === 'close') {
-      console.log("❌ WhatsApp desconectado")
-      startBot()
+    if (connection === "open") {
+      console.log("✅ WhatsApp conectado")
     }
   })
 
@@ -51,26 +55,24 @@ async function startBot() {
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text
 
-    if (!texto) return
-
-    console.log("📩 Mensaje recibido:", texto)
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content:
-            "Eres el asistente de la marca Raios, una marca de ropa deportiva. Responde como vendedor profesional."
+          content: "Eres el asistente de la marca Raios, una marca de ropa deportiva."
         },
         { role: "user", content: texto }
       ]
     })
 
-    const respuesta = completion.choices[0].message.content
-
-    await sock.sendMessage(msg.key.remoteJid, { text: respuesta })
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: completion.choices[0].message.content
+    })
   })
 }
+
+startBot()
+
 
 startBot()
