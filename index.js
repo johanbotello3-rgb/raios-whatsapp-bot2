@@ -1,10 +1,15 @@
 import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState
+  useMultiFileAuthState,
+  DisconnectReason
 } from '@whiskeysockets/baileys'
 import qrcode from 'qrcode-terminal'
 import OpenAI from 'openai'
 import Pino from 'pino'
+import express from 'express'
+
+const app = express()
+app.get("/", (req, res) => res.send("Raios WhatsApp Bot is running"))
+app.listen(process.env.PORT || 3000)
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -14,7 +19,6 @@ async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
 
   const sock = makeWASocket({
-    printQRInTerminal: false,
     auth: state,
     logger: Pino({ level: 'silent' })
   })
@@ -25,12 +29,17 @@ async function startBot() {
     const { connection, qr } = update
 
     if (qr) {
-      console.log("📲 Escanea este QR con WhatsApp")
+      console.log("📲 ESCANEA ESTE QR CON WHATSAPP")
       qrcode.generate(qr, { small: true })
     }
 
     if (connection === 'open') {
-      console.log('✅ WhatsApp conectado correctamente')
+      console.log("✅ WHATSAPP CONECTADO A RAIOS BOT")
+    }
+
+    if (connection === 'close') {
+      console.log("❌ WhatsApp desconectado")
+      startBot()
     }
   })
 
@@ -44,10 +53,16 @@ async function startBot() {
 
     if (!texto) return
 
+    console.log("📩 Mensaje recibido:", texto)
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Eres el asistente de la marca Raios, una marca de ropa deportiva." },
+        {
+          role: "system",
+          content:
+            "Eres el asistente de la marca Raios, una marca de ropa deportiva. Responde como vendedor profesional."
+        },
         { role: "user", content: texto }
       ]
     })
