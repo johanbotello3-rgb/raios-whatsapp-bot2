@@ -1,0 +1,15 @@
+{
+  "name": "raios-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp con IA para Raios",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0",
+    "qrcode-terminal": "^0.12.0",
+    "openai": "^4.0.0"
+  }
+}
